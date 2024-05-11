@@ -44,6 +44,7 @@ Pygments @ file:///C:/b/abs_fay9dpq4n_/croot/pygments_1684279990574/work
 pyparsing==3.1.2
 pyproj==3.4.0
 python-dateutil @ file:///C:/b/abs_a6ui0hquwx/croot/python-dateutil_1715108843988/work
+python-dotenv==1.0.1
 pytz==2024.1
 pywin32==305.1
 pyzmq @ file:///C:/b/abs_89aq69t0up/croot/pyzmq_1705605705281/work

@@ -1,6 +1,6 @@
 *.json
 *.env
-
+zoom_logs/
 
 
 

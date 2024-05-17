@@ -27,7 +27,7 @@ class homework:
         gc = gspread.service_account(json_file_path)
         spreadsheet_url = os.environ.get('SHEET_URL')
         doc = gc.open_by_url(spreadsheet_url)
-        self.python_attendance = doc.worksheet(class_name)
+        self.class_sheet = doc.worksheet(class_name)
 
     
     def process(self):
@@ -58,7 +58,7 @@ class homework:
         return pages_and_databases
 
     def hwWeekDection(self, raw_data : list)->list:
-        column_name = [x for x in list(raw_data[0]['properties'].keys()) if self.week in x][0]
+        column_name = [x for x in list(raw_data[0]['properties'].keys()) if f"({self.week}주차)" in x][0]
         week_hw_data = []
         for info in raw_data:
             name = ''
@@ -90,23 +90,27 @@ class homework:
         - 작동 : 전처리된 데이터 사용하여 스프레드시트 업데이트
         - 반환 : null
         '''
+        def updateCells(spread_sheet_type : str)->None:
+            cell_location = cellDection(spread_sheet_type, self.week)
+            cell_list = self.class_sheet.range(f'{cell_location[0]}{cell_location[1]}:{cell_location[0]}{cell_location[1]+len(hw_df)}')
+            for i, val in enumerate(hw_df[spread_sheet_type]):
+                cell_list[i].value = val    
+            self.class_sheet.update_cells(cell_list)
+
+        updateCells("필수")
+        updateCells("복습")
+        # cell_list = self.python_attendance.range(f'H4:H{4+len(hw_df)}')
+        # for i, val in enumerate(hw_df['필수']):
+        #     cell_list[i].value = val
 
 
-        cell_list = self.python_attendance.range(f'H4:H{4+len(hw_df)}')
 
-        for i, val in enumerate(hw_df['필수']):
-            cell_list[i].value = val
+        # cell_list = self.python_attendance.range(f'I4:I{4+len(hw_df)}')
 
-        self.python_attendance.update_cells(cell_list)
+        # for i, val in enumerate(hw_df['복습']):
+        #     cell_list[i].value = val
 
-
-
-        cell_list = self.python_attendance.range(f'I4:I{4+len(hw_df)}')
-
-        for i, val in enumerate(hw_df['복습']):
-            cell_list[i].value = val
-
-        self.python_attendance.update_cells(cell_list)
+        # self.python_attendance.update_cells(cell_list)
 
 
 
@@ -141,9 +145,10 @@ class attandnace:
         attandnace_data = self.getAttandanceDB()
         self.downloadZoomLog(attandnace_data)
         class_list = self.getWeekZoomLogFilePath()
-        for file in class_list:
-            file_data = self.getWeekZoomLog(file)
-            self.updateAttandanceSpread(file_data)
+        for file_path in class_list:
+            class_name = file_path.split('/')[-1].split('.')[0]
+            file_data = self.getWeekZoomLog(file_path, class_name)
+            self.updateAttandanceSpread(file_data, class_name)
 
 
     def getAttandanceDB(self)->list:
@@ -171,7 +176,7 @@ class attandnace:
         - 작동 : 가져온 데이터에서 file path를 통해 csv들 다운받기
         - 반환 : null
         '''
-        column_name = [x for x in list(data_list[0]['properties'].keys()) if self.week == x][0]
+        column_name = [x for x in list(data_list[0]['properties'].keys()) if f"{self.week}주차" == x][0]
         row_list = [x['properties']['분반명']['title'][0]['plain_text'] for x in data_list]
 
         dir_path = f"zoom_logs\\{column_name}"
@@ -182,13 +187,13 @@ class attandnace:
                 file_url = requests.get(data_list[x]['properties'][column_name]['files'][0]['file']['url'])
                 open(file_name, 'wb').write(file_url.content)
 
-    def getWeekZoomLog(self, file_path : str)->list:
+    def getWeekZoomLog(self, file_path : str, class_name : str)->list:
         '''
         - 인자 : readWeek 반환 값
         - 작동 : 해당 주차 모든 줌 로그 가져오기
         - 반환 : list(csv file path list)
         '''
-        python_attendance = self.doc.worksheet("Python 문법 기초반")
+        python_attendance = self.doc.worksheet(class_name)
 
         df = pd.read_csv(file_path)
         jun_time = list(df[df['사용자 이메일'] == 'official.datachef@gmail.com']['기간(분)'])[0]
@@ -198,29 +203,37 @@ class attandnace:
 
         merge_df = pd.merge(pd.DataFrame(range_list, columns=['이름(원래 이름)']), df.groupby(['이름(원래 이름)'])['기간(분)'].sum().reset_index(), on='이름(원래 이름)', how='left').fillna(0)
         
-        merge_df['출첵'] = merge_df['기간(분)'].apply(lambda x : 'O' if jun_time-10 <= x else ('지각' if x != 0 else 'X'))
+        merge_df['출석'] = merge_df['기간(분)'].apply(lambda x : 'O' if jun_time-10 <= x else ('지각' if x != 0 else 'X'))
         results_df = merge_df[merge_df['이름(원래 이름)'] != '']
         return results_df
 
-    def updateAttandanceSpread(self, attandance_df : pd.DataFrame)->list:
+    def updateAttandanceSpread(self, attandance_df : pd.DataFrame, class_name : str)->list:
         '''
         - 인자 : zoomLogPreProcessing에서 얻은 dict 혹은 list
         - 작동 : 전처리 데이터 스프레드시트에 업데이트
         - 반환 : null
         '''
+        cell_location = cellDection("출석", self.week)
+        python_attendance = self.doc.worksheet(class_name)
 
-        python_attendance = self.doc.worksheet("Python 문법 기초반")
 
-        cell_list = python_attendance.range(f"F{4}:F{4+len(attandance_df)}")
-        cell_values = list(attandance_df['출첵'])
+        cell_list = python_attendance.range(f"{cell_location[0]}{cell_location[1]}:{cell_location[0]}{cell_location[1]+len(attandance_df)}")
+        cell_values = list(attandance_df['출석'])
         for i, val in enumerate(cell_values):  #gives us a tuple of an index and value
             cell_list[i].value = val    #use the index on cell_list and the val from cell_values
 
         python_attendance.update_cells(cell_list)
 
     def getWeekZoomLogFilePath(self)->list:
-        os_list = os.listdir(f'zoom_logs/{self.week}')
-        return [f'./zoom_logs/{self.week}/{x}' for x in os_list]
+        try: os.listdir().index('zoom_logs')
+        except: os.mkdir('zoom_logs')
+
+        try: os.listdir(f'zoom_logs/').index(f'{self.week}주차')
+        except: os.mkdir(f'zoom_logs/{self.week}주차')
+
+
+        os_list = os.listdir(f'zoom_logs/{self.week}주차')
+        return [f'./zoom_logs/{self.week}주차/{x}' for x in os_list]
 
 
 def checkDate()->str:
@@ -231,27 +244,63 @@ def checkDate()->str:
     '''
     pass
 
-def readWeek()->int:
+
+def readJson(file_path : str)->dict:
     '''
-    - 인자 : json file path
-    - 작동 : 오늘 몇주차인지 리턴
-    - 반환 : int
+    file_path input 시 json파일 리딩 후 반환
     '''
-    pass
+    with open(file_path, 'rt', encoding='UTF8') as file:
+        json_data = json.load(file)
+    return json_data
 
 def getWeekZoomLogFilePath(week : str)->list:
-    os_list = os.listdir(f'zoom_logs/{week}')
-    return [f'./zoom_logs/{week}/{x}' for x in os_list]
+    #디렉토리 체크
+    try: os.listdir().index('zoom_logs')
+    except: os.mkdir('zoom_logs')
+
+    try: os.listdir(f'zoom_logs/').index(f'{week}주차')
+    except: os.mkdir(f'zoom_logs/{week}주차')
+
+
+    os_list = os.listdir(f'zoom_logs/{week}주차')
+    return [f'./zoom_logs/{week}주차/{x}' for x in os_list]
 
 
 def unicodeNormalize(data_list : list)->list:
     return [unicodedata.normalize('NFC',x) for x in data_list]
 
 
+def cellDection(spread_sheet_type : str, week : int)->list:
+    #수식 6+4*week+weight
+    #예외 AA
+    #(6+4*week+weight)/(ord('Z')-ord('A'))의 몫과 나머지 사용해서 chr
+    #chr((ord('A')-1) + (5+4*(13-1))//(ord('Z')+1-ord('A'))), chr(ord('A')+(5+4*(13-1))%(ord('Z')+1-ord('A')))
+    alphabet_count = ord('Z')+1-ord('A')
+    if spread_sheet_type == "출석": bais = 0
+    elif spread_sheet_type == "필수": bais = 2
+    elif spread_sheet_type == "복습": bais = 3
+    else: return None
+    cell_cal = 5+4*(week-1)+bais
+
+    if cell_cal//alphabet_count == 0:
+        return [chr(ord('A')+cell_cal%alphabet_count), 4]
+    else:
+        return [f"{chr((ord('A')-1)+cell_cal//alphabet_count)}{chr((ord('A')-1)+cell_cal%alphabet_count)}",4]
+
+
+
 if __name__ == '__main__':
     # json 읽고
-    # for x in json:
-        # homework(분반, week).start()
+    json_data = readJson('data.json')
 
-    # homework("Python 문법 기초반","d84cffb8266b4c5bb7bbc0252c6c817d","(6주차)").process()
-    attandnace("3a2a9742f1fa40f18c432a06401310cf", "6주차").process()
+    # class_list = [list(data.keys())[0] for data in json_data['class']]
+
+    # for data in json_data['class']:
+    #     #TODO
+    #     #IF로 요일 조건문
+    #     print(data['class_name'], data['notion_database_id'], data['week'])
+    #     homework(data['class_name'], data['notion_database_id'], data['week']).process()
+
+
+    attandnace(json_data["attandance_notion_database_id"], json_data['attandance_week']).process()
+

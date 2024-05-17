@@ -295,11 +295,11 @@ if __name__ == '__main__':
 
     # class_list = [list(data.keys())[0] for data in json_data['class']]
 
-    # for data in json_data['class']:
-    #     #TODO
-    #     #IF로 요일 조건문
-    #     print(data['class_name'], data['notion_database_id'], data['week'])
-    #     homework(data['class_name'], data['notion_database_id'], data['week']).process()
+    for data in json_data['class']:
+        #TODO
+        #IF로 요일 조건문
+        print(data['class_name'], data['notion_database_id'], data['week'])
+        homework(data['class_name'], data['notion_database_id'], data['week']).process()
 
 
     attandnace(json_data["attandance_notion_database_id"], json_data['attandance_week']).process()

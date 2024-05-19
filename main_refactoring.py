@@ -35,7 +35,7 @@ class homework:
         hw_week_data = self.hwWeekDection(hw_data)
         hw_preprocessing_data = self.hwPreProcessing(hw_week_data)
         self.updateHWSpread(hw_preprocessing_data)
-
+        return None
 
 
 
@@ -52,10 +52,11 @@ class homework:
         while True:
             search_response = requests.post(self.notion_database_read_url, json=params, headers=self.notion_header)
             if search_response.ok is False: break
-            search_response_obj = search_response.json()	
+            search_response_obj = search_response.json()
             pages_and_databases.extend(search_response_obj.get("results"))
             params["start_cursor"] = search_response_obj.get("next_cursor")
         return pages_and_databases
+
 
     def hwWeekDection(self, raw_data : list)->list:
         column_name = [x for x in list(raw_data[0]['properties'].keys()) if f"({self.week}주차)" in x][0]
@@ -99,18 +100,24 @@ class homework:
 
         updateCells("필수")
         updateCells("복습")
-        # cell_list = self.python_attendance.range(f'H4:H{4+len(hw_df)}')
-        # for i, val in enumerate(hw_df['필수']):
-        #     cell_list[i].value = val
+        return None
+
+    
+    def weekUpdate(self, json_path : str):
+        with open(json_path, 'rt', encoding='UTF8') as json_file:
+            json_data = json.load(json_file)
+        
+        for x in range(len(json_data['class'])):
+            if json_data['class'][x]['class_name'] == self.class_name:
+                json_data['class'][x]['week'] += 1
+                break
 
 
+        with open('data.json', 'w', encoding='UTF8') as outfile:
+            json.dump(json_data, outfile)       
 
-        # cell_list = self.python_attendance.range(f'I4:I{4+len(hw_df)}')
+        return None
 
-        # for i, val in enumerate(hw_df['복습']):
-        #     cell_list[i].value = val
-
-        # self.python_attendance.update_cells(cell_list)
 
 
 
@@ -138,17 +145,18 @@ class attandnace:
         gc = gspread.service_account(json_file_path)
         spreadsheet_url = os.environ.get('SHEET_URL')
         self.doc = gc.open_by_url(spreadsheet_url)
-        pass
 
 
     def process(self):
         attandnace_data = self.getAttandanceDB()
+        self.mkdirZoomLog()
         self.downloadZoomLog(attandnace_data)
         class_list = self.getWeekZoomLogFilePath()
         for file_path in class_list:
             class_name = file_path.split('/')[-1].split('.')[0]
             file_data = self.getWeekZoomLog(file_path, class_name)
             self.updateAttandanceSpread(file_data, class_name)
+        return None
 
 
     def getAttandanceDB(self)->list:
@@ -165,7 +173,7 @@ class attandnace:
             if search_response.ok is False: break
             search_response_obj = search_response.json()	
             pages_and_databases.extend(search_response_obj.get("results"))
-            params["start_cursor"] = search_response_obj.get("next_cursor")
+            params["sta rt_cursor"] = search_response_obj.get("next_cursor")
 
         return pages_and_databases
 
@@ -186,6 +194,7 @@ class attandnace:
                 file_name = f"{dir_path}\\{row_list[x]}.csv"
                 file_url = requests.get(data_list[x]['properties'][column_name]['files'][0]['file']['url'])
                 open(file_name, 'wb').write(file_url.content)
+        return None
 
     def getWeekZoomLog(self, file_path : str, class_name : str)->list:
         '''
@@ -193,47 +202,62 @@ class attandnace:
         - 작동 : 해당 주차 모든 줌 로그 가져오기
         - 반환 : list(csv file path list)
         '''
-        python_attendance = self.doc.worksheet(class_name)
+        attendance = self.doc.worksheet(class_name)
 
         df = pd.read_csv(file_path)
         jun_time = list(df[df['사용자 이메일'] == 'official.datachef@gmail.com']['기간(분)'])[0]
 
         df['이름(원래 이름)'] = df['이름(원래 이름)'].apply(lambda x : x.split('(')[0].replace(' ','').replace('_',''))
-        range_list = [x.value for x in python_attendance.range('A4:A400')]
+        range_list = [x.value for x in attendance.range('A4:A400')]
 
-        merge_df = pd.merge(pd.DataFrame(range_list, columns=['이름(원래 이름)']), df.groupby(['이름(원래 이름)'])['기간(분)'].sum().reset_index(), on='이름(원래 이름)', how='left').fillna(0)
+        merge_df = pd.merge(pd.DataFrame(range_list, columns=['이름(원래 이름)']), df.groupby(['이름(원래 이름)'])['기간(분)'].sum().reset_index(), on='이름(원래 이름)', how='left').fillna(-1)
         
-        merge_df['출석'] = merge_df['기간(분)'].apply(lambda x : 'O' if jun_time-10 <= x else ('지각' if x != 0 else 'X'))
+        merge_df['출석'] = merge_df['기간(분)'].apply(lambda x : 'O' if jun_time-10 <= x else ('지각' if x != -1 else 'X'))
         results_df = merge_df[merge_df['이름(원래 이름)'] != '']
         return results_df
 
-    def updateAttandanceSpread(self, attandance_df : pd.DataFrame, class_name : str)->list:
+    def updateAttandanceSpread(self, attandance_df : pd.DataFrame, class_name : str)->None:
         '''
         - 인자 : zoomLogPreProcessing에서 얻은 dict 혹은 list
         - 작동 : 전처리 데이터 스프레드시트에 업데이트
         - 반환 : null
         '''
         cell_location = cellDection("출석", self.week)
-        python_attendance = self.doc.worksheet(class_name)
+        attendance = self.doc.worksheet(class_name)
 
 
-        cell_list = python_attendance.range(f"{cell_location[0]}{cell_location[1]}:{cell_location[0]}{cell_location[1]+len(attandance_df)}")
+        cell_list = attendance.range(f"{cell_location[0]}{cell_location[1]}:{cell_location[0]}{cell_location[1]+len(attandance_df)}")
         cell_values = list(attandance_df['출석'])
         for i, val in enumerate(cell_values):  #gives us a tuple of an index and value
             cell_list[i].value = val    #use the index on cell_list and the val from cell_values
 
-        python_attendance.update_cells(cell_list)
+        attendance.update_cells(cell_list)
+        return None
 
-    def getWeekZoomLogFilePath(self)->list:
+    def mkdirZoomLog(self)->None:
         try: os.listdir().index('zoom_logs')
         except: os.mkdir('zoom_logs')
 
         try: os.listdir(f'zoom_logs/').index(f'{self.week}주차')
         except: os.mkdir(f'zoom_logs/{self.week}주차')
+        return None
 
-
+    def getWeekZoomLogFilePath(self)->list:
         os_list = os.listdir(f'zoom_logs/{self.week}주차')
         return [f'./zoom_logs/{self.week}주차/{x}' for x in os_list]
+
+
+    def weekUpdate(self, json_path : str):
+        with open(json_path, 'rt', encoding='UTF8') as json_file:
+            json_data = json.load(json_file)
+        
+        json_data['attandance_week']+=1
+
+        with open('data.json', 'w', encoding='UTF8') as outfile:
+            json.dump(json_data, outfile)
+        return None
+
+
 
 
 def checkDate()->str:
@@ -253,17 +277,17 @@ def readJson(file_path : str)->dict:
         json_data = json.load(file)
     return json_data
 
-def getWeekZoomLogFilePath(week : str)->list:
-    #디렉토리 체크
-    try: os.listdir().index('zoom_logs')
-    except: os.mkdir('zoom_logs')
+# def getWeekZoomLogFilePath(week : str)->list:
+#     #디렉토리 체크
+#     try: os.listdir().index('zoom_logs')
+#     except: os.mkdir('zoom_logs')
 
-    try: os.listdir(f'zoom_logs/').index(f'{week}주차')
-    except: os.mkdir(f'zoom_logs/{week}주차')
+#     try: os.listdir(f'zoom_logs/').index(f'{week}주차')
+#     except: os.mkdir(f'zoom_logs/{week}주차')
 
 
-    os_list = os.listdir(f'zoom_logs/{week}주차')
-    return [f'./zoom_logs/{week}주차/{x}' for x in os_list]
+#     os_list = os.listdir(f'zoom_logs/{week}주차')
+#     return [f'./zoom_logs/{week}주차/{x}' for x in os_list]
 
 
 def unicodeNormalize(data_list : list)->list:
@@ -285,22 +309,51 @@ def cellDection(spread_sheet_type : str, week : int)->list:
     if cell_cal//alphabet_count == 0:
         return [chr(ord('A')+cell_cal%alphabet_count), 4]
     else:
-        return [f"{chr((ord('A')-1)+cell_cal//alphabet_count)}{chr((ord('A')-1)+cell_cal%alphabet_count)}",4]
+        return [f"{chr((ord('A')-1)+cell_cal//alphabet_count)}{chr((ord('A'))+cell_cal%alphabet_count)}",4]
 
 
 
 if __name__ == '__main__':
     # json 읽고
-    json_data = readJson('data.json')
+    # json_data = readJson('data.json')
 
-    # class_list = [list(data.keys())[0] for data in json_data['class']]
+    # # class_list = [list(data.keys())[0] for data in json_data['class']]
 
-    for data in json_data['class']:
-        #TODO
-        #IF로 요일 조건문
-        print(data['class_name'], data['notion_database_id'], data['week'])
-        homework(data['class_name'], data['notion_database_id'], data['week']).process()
+    # try:
+    #     for data in json_data['class']:
+    #         #TODO
+    #         #IF로 요일 조건문
+    #         print(data['class_name'], data['notion_database_id'], data['week'])
+    #         homework_obj = homework(data['class_name'], data['notion_database_id'], data['week'])
+    #         homework_obj.process()
+    #         homework_obj.weekUpdate('data.json')
 
+    #     attandnace_obj = attandnace(json_data["attandance_notion_database_id"], json_data['attandance_week'])
+    #     attandnace_obj.process()
+    #     attandnace_obj.weekUpdate('data.json')
+    # # attandnace_obj = attandnace(json_data["attandance_notion_database_id"], json_data['attandance_week'])
+    # # attandnace_obj.process()
+    # # attandnace_obj.weekUpdate('data.json')
 
-    attandnace(json_data["attandance_notion_database_id"], json_data['attandance_week']).process()
+    # except: print("except")
+
+    # try:
+    for x in range(6):
+        json_data = readJson('data.json')
+        for data in json_data['class']:
+            #TODO
+            #IF로 요일 조건문
+            print(data['class_name'], data['notion_database_id'], data['week'])
+            homework_obj = homework(data['class_name'], data['notion_database_id'], data['week'])
+            homework_obj.process()
+            homework_obj.weekUpdate('data.json')    
+
+        attandnace_obj = attandnace(json_data["attandance_notion_database_id"], json_data['attandance_week'])
+        attandnace_obj.process()
+        attandnace_obj.weekUpdate('data.json')
+    # attandnace_obj = attandnace(json_data["attandance_notion_database_id"], json_data['attandance_week'])
+    # attandnace_obj.process()
+    # attandnace_obj.weekUpdate('data.json')
+
+    # except: print("except")
 

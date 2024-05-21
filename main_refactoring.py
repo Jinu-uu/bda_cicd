@@ -81,8 +81,9 @@ class homework:
         hw_df['필수'] = hw_df['hw'].apply(lambda x : 'O' if '필수' in x else 'X')
         hw_df['복습'] = hw_df['hw'].apply(lambda x : 'O' if '복습' in x else 'X')
         hw_df = hw_df[hw_df['name'] != ''].sort_values(by='name').reset_index()
-
-        return hw_df
+        range_list = [x.value for x in self.class_sheet.range('A4:A400')]
+        merge_df = pd.merge(pd.DataFrame(range_list, columns=['name']), hw_df, on='name', how='left').fillna('오류')
+        return merge_df[merge_df['name'] != '']
 
 
     def updateHWSpread(self, hw_df:pd.DataFrame)->None:
@@ -319,23 +320,21 @@ if __name__ == '__main__':
 
     # # class_list = [list(data.keys())[0] for data in json_data['class']]
 
-    # try:
-    #     for data in json_data['class']:
-    #         #TODO
-    #         #IF로 요일 조건문
-    #         print(data['class_name'], data['notion_database_id'], data['week'])
-    #         homework_obj = homework(data['class_name'], data['notion_database_id'], data['week'])
-    #         homework_obj.process()
-    #         homework_obj.weekUpdate('data.json')
+    # for data in json_data['class']:
+    #     #TODO
+    #     #IF로 요일 조건문
+    #     print(data['class_name'], data['notion_database_id'], data['week'])
+    #     homework_obj = homework(data['class_name'], data['notion_database_id'], data['week'])
+    #     homework_obj.process()
+        # homework_obj.weekUpdate('data.json')
 
-    #     attandnace_obj = attandnace(json_data["attandance_notion_database_id"], json_data['attandance_week'])
-    #     attandnace_obj.process()
-    #     attandnace_obj.weekUpdate('data.json')
-    # # attandnace_obj = attandnace(json_data["attandance_notion_database_id"], json_data['attandance_week'])
-    # # attandnace_obj.process()
-    # # attandnace_obj.weekUpdate('data.json')
+    # attandnace_obj = attandnace(json_data["attandance_notion_database_id"], json_data['attandance_week'])
+    # attandnace_obj.process()
+    # attandnace_obj.weekUpdate('data.json')
+    # attandnace_obj = attandnace(json_data["attandance_notion_database_id"], json_data['attandance_week'])
+    # attandnace_obj.process()
+    # attandnace_obj.weekUpdate('data.json')
 
-    # except: print("except")
 
     # try:
     for x in range(6):
@@ -351,9 +350,8 @@ if __name__ == '__main__':
         attandnace_obj = attandnace(json_data["attandance_notion_database_id"], json_data['attandance_week'])
         attandnace_obj.process()
         attandnace_obj.weekUpdate('data.json')
-    # attandnace_obj = attandnace(json_data["attandance_notion_database_id"], json_data['attandance_week'])
-    # attandnace_obj.process()
-    # attandnace_obj.weekUpdate('data.json')
-
+    attandnace_obj = attandnace(json_data["attandance_notion_database_id"], json_data['attandance_week'])
+    attandnace_obj.process()
+    attandnace_obj.weekUpdate('data.json')
     # except: print("except")
 

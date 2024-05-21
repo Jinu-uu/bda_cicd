@@ -9,10 +9,12 @@ from dotenv import load_dotenv
 
 class homework:
     
-    def __init__(self, class_name, class_database_id, week):
+    def __init__(self, class_name, class_database_id, week, day, time):
         self.class_name = class_name
         self.class_database_id = class_database_id
         self.week = week
+        self.day = day
+        self.time = time
 
         load_dotenv()
         self.notion_token = os.environ.get('NOTION_API')
@@ -206,15 +208,20 @@ class attandnace:
         attendance = self.doc.worksheet(class_name)
 
         df = pd.read_csv(file_path)
-        jun_time = list(df[df['사용자 이메일'] == 'official.datachef@gmail.com']['기간(분)'])[0]
 
-        df['이름(원래 이름)'] = df['이름(원래 이름)'].apply(lambda x : x.split('(')[0].replace(' ','').replace('_',''))
-        range_list = [x.value for x in attendance.range('A4:A400')]
+        if '참가 시간' in ''.join(list(df.columns)):
+            jun_time = list()
 
-        merge_df = pd.merge(pd.DataFrame(range_list, columns=['이름(원래 이름)']), df.groupby(['이름(원래 이름)'])['기간(분)'].sum().reset_index(), on='이름(원래 이름)', how='left').fillna(-1)
-        
-        merge_df['출석'] = merge_df['기간(분)'].apply(lambda x : 'O' if jun_time-10 <= x else ('지각' if x != -1 else 'X'))
-        results_df = merge_df[merge_df['이름(원래 이름)'] != '']
+        else:
+            jun_time = list(df[df['사용자 이메일'] == 'official.datachef@gmail.com']['기간(분)'])[0]
+
+            df['이름(원래 이름)'] = df['이름(원래 이름)'].apply(lambda x : x.split('(')[0].replace(' ','').replace('_',''))
+            range_list = [x.value for x in attendance.range('A4:A400')]
+
+            merge_df = pd.merge(pd.DataFrame(range_list, columns=['이름(원래 이름)']), df.groupby(['이름(원래 이름)'])['기간(분)'].sum().reset_index(), on='이름(원래 이름)', how='left').fillna(-1)
+            
+            merge_df['출석'] = merge_df['기간(분)'].apply(lambda x : 'O' if jun_time-10 <= x else ('지각' if x != -1 else 'X'))
+            results_df = merge_df[merge_df['이름(원래 이름)'] != '']
         return results_df
 
     def updateAttandanceSpread(self, attandance_df : pd.DataFrame, class_name : str)->None:
@@ -343,15 +350,16 @@ if __name__ == '__main__':
             #TODO
             #IF로 요일 조건문
             print(data['class_name'], data['notion_database_id'], data['week'])
-            homework_obj = homework(data['class_name'], data['notion_database_id'], data['week'])
+            homework_obj = homework(data['class_name'], data['notion_database_id'], data['week'], data['day'], data['time'])
             homework_obj.process()
             homework_obj.weekUpdate('data.json')    
 
         attandnace_obj = attandnace(json_data["attandance_notion_database_id"], json_data['attandance_week'])
         attandnace_obj.process()
         attandnace_obj.weekUpdate('data.json')
-    attandnace_obj = attandnace(json_data["attandance_notion_database_id"], json_data['attandance_week'])
-    attandnace_obj.process()
-    attandnace_obj.weekUpdate('data.json')
+
+    # attandnace_obj = attandnace(json_data["attandance_notion_database_id"], json_data['attandance_week'])
+    # attandnace_obj.process()
+    # attandnace_obj.weekUpdate('data.json')
     # except: print("except")
 

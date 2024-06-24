@@ -5,6 +5,7 @@ import requests, json
 import pandas as pd
 import unicodedata
 import warnings
+import datetime
 
 
 from dotenv import load_dotenv
@@ -380,47 +381,41 @@ def cellDection(spread_sheet_type : str, week : int)->list:
 
 
 
+
 if __name__ == '__main__':
     warnings.filterwarnings(action='ignore')
     # json 읽고
     # json_data = readJson('data.json')
 
-    # # class_list = [list(data.keys())[0] for data in json_data['class']]
-
-    # for data in json_data['class']:
-    #     #TODO
-    #     #IF로 요일 조건문
-    #     print(data['class_name'], data['notion_database_id'], data['week'])
-    #     homework_obj = homework(data['class_name'], data['notion_database_id'], data['week'])
-    #     homework_obj.process()
-        # homework_obj.weekUpdate('data.json')
-
-    # attandnace_obj = attandnace(json_data["attandance_notion_database_id"], json_data['attandance_week'])
-    # attandnace_obj.process()
-    # attandnace_obj.weekUpdate('data.json')
-    # attandnace_obj = attandnace(json_data["attandance_notion_database_id"], json_data['attandance_week'])
-    # attandnace_obj.process()
-    # attandnace_obj.weekUpdate('data.json')
 
 
-    # try:
-    for x in range(6):
-        json_data = readJson('data.json')
-        for data in json_data['class']:
-            #TODO
-            #IF로 요일 조건문
-            print(data['class_name'], data['notion_database_id'], data['week'])
-            homework_obj = homework(data['class_name'], data['notion_database_id'], data['week'], data['day'], data['time'])
-            homework_obj.process()
-            homework_obj.weekUpdate('data.json')    
+    json_data = readJson('data.json')
+    for data in json_data['class']:
+        #TODO
+        #IF로 요일 조건문
+        print(data['class_name'], data['notion_database_id'], data['week'])
+        homework_obj = homework(data['class_name'], data['notion_database_id'], data['week'], data['day'], data['time'])
+        homework_obj.process()
+        homework_obj.weekUpdate('data.json')    
 
-        attandnace_obj = attandnace(json_data["attandance_notion_database_id"], json_data['attandance_week'])
-        attandnace_obj.process()
-        attandnace_obj.weekUpdate('data.json')
+    attandnace_obj = attandnace(json_data["attandance_notion_database_id"], json_data['attandance_week'])
+    attandnace_obj.process()
+    attandnace_obj.weekUpdate('data.json')
+
+
 
     # json_data = readJson('data.json')
-    # attandnace_obj = attandnace(json_data["attandance_notion_database_id"], json_data['attandance_week'])
-    # attandnace_obj.process()
-    # attandnace_obj.weekUpdate('data.json')
-    # except: print("except")
-
+    
+    # day = datetime.date(datetime.now()).weekday()
+    # if json_data['attandance_week'] == day:
+    #     attandnace_obj = attandnace(json_data["attandance_notion_database_id"], json_data['attandance_week'])
+    #     attandnace_obj.process()
+    #     attandnace_obj.weekUpdate('data.json')
+    
+    # else:
+    #     for data in json_data['class']:
+    #         if json_data['day'] != day: continue
+    #         print(data['class_name'], data['notion_database_id'], data['week'])
+    #         homework_obj = homework(data['class_name'], data['notion_database_id'], data['week'], data['day'], data['time'])
+    #         homework_obj.process()
+    #         homework_obj.weekUpdate('data.json')
